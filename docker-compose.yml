@@ -1,0 +1,169 @@
+services:
+
+  # ─────────────────────────────────────────
+  # BANCO DE DADOS — Auth Service
+  # ─────────────────────────────────────────
+  postgres-auth:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_AUTH_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_AUTH_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_AUTH_DB}
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+      - ./backend/auth-service/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_AUTH_USER} -d ${POSTGRES_AUTH_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # BANCO DE DADOS — Chat Service
+  # ─────────────────────────────────────────
+  postgres-chat:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_CHAT_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_CHAT_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_CHAT_DB}
+    volumes:
+      - postgres_chat_data:/var/lib/postgresql/data
+      - ./backend/chat-service/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_CHAT_USER} -d ${POSTGRES_CHAT_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # REDIS — Cache e Pub/Sub
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: >
+      redis-server /etc/redis/redis.conf
+      --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - ./backend/redis/redis.conf:/etc/redis/redis.conf:ro
+      - redis_data:/data
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # AUTH SERVICE
+  # ─────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_AUTH_USER}:${POSTGRES_AUTH_PASSWORD}@postgres-auth/${POSTGRES_AUTH_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+    networks:
+      - backend-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # CHAT SERVICE — Instância 1
+  # ─────────────────────────────────────────
+  chat-service-1:
+    build:
+      context: ./backend/chat-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_CHAT_USER}:${POSTGRES_CHAT_PASSWORD}@postgres-chat/${POSTGRES_CHAT_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      INSTANCE_ID: chat-service-1
+    depends_on:
+      postgres-chat:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # CHAT SERVICE — Instância 2 (load balancing)
+  # ─────────────────────────────────────────
+  chat-service-2:
+    build:
+      context: ./backend/chat-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_CHAT_USER}:${POSTGRES_CHAT_PASSWORD}@postgres-chat/${POSTGRES_CHAT_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      INSTANCE_ID: chat-service-2
+    depends_on:
+      postgres-chat:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # NGINX — Reverse Proxy + Load Balancer
+  # ─────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./backend/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+      - chat-service-1
+      - chat-service-2
+    networks:
+      - backend-net
+      - frontend-net
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────
+  # FRONTEND
+  # ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    networks:
+      - frontend-net
+    restart: unless-stopped
+
+# ─────────────────────────────────────────
+# VOLUMES PERSISTENTES
+# ─────────────────────────────────────────
+volumes:
+  postgres_auth_data:
+  postgres_chat_data:
+  redis_data:
+
+# ─────────────────────────────────────────
+# REDES INTERNAS
+# ─────────────────────────────────────────
+networks:
+  backend-net:
+    driver: bridge
+  frontend-net:
+    driver: bridge

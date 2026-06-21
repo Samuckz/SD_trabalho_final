@@ -1,0 +1,54 @@
+.claude/
+
+# Variáveis de ambiente (nunca commitar)
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.egg-info/
+dist/
+build/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+docs/
+
+# Alembic (manter as migrations, ignorar cache)
+backend/auth-service/migrations/__pycache__/
+backend/chat-service/migrations/__pycache__/
+
+frontend/node_modules/
+frontend/INTEGRATION_GUIDE.md
+frontend/ARCHITECTURE.md
+frontend/package-lock.json
+frontend/package.json
+
+.claude/

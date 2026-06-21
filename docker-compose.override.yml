@@ -1,0 +1,52 @@
+# Overrides de desenvolvimento — expõe portas no host e ativa hot-reload.
+# Este arquivo é carregado automaticamente pelo Docker Compose em desenvolvimento.
+# NÃO commitar (já está no .gitignore).
+
+services:
+
+  postgres-auth:
+    ports:
+      - "${POSTGRES_AUTH_HOST_PORT:-5432}:5432"
+
+  postgres-chat:
+    ports:
+      - "${POSTGRES_CHAT_HOST_PORT:-5433}:5432"
+
+  redis:
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+
+  auth-service:
+    ports:
+      - "${AUTH_SERVICE_HOST_PORT:-8000}:8000"
+    volumes:
+      - ./backend/auth-service:/app
+    environment:
+      RELOAD: "true"
+
+  chat-service-1:
+    ports:
+      - "${CHAT_SERVICE_1_HOST_PORT:-8001}:8000"
+    volumes:
+      - ./backend/chat-service:/app
+    environment:
+      RELOAD: "true"
+
+  chat-service-2:
+    ports:
+      - "${CHAT_SERVICE_2_HOST_PORT:-8002}:8000"
+    volumes:
+      - ./backend/chat-service:/app
+    environment:
+      RELOAD: "true"
+
+  frontend:
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+volumes:
+  frontend_node_modules:
