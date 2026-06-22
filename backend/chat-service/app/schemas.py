@@ -84,6 +84,26 @@ class ConversationResponse(BaseModel):
     unread_count: int = 0
 
 
+# ── Group management ──────────────────────────────────────────────────────────
+
+class RenameGroupRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("nome não pode ser vazio")
+        return v
+
+
+class AddParticipantsRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    participant_ids: list[UUID]
+
+
 # ── Pagination ────────────────────────────────────────────────────────────────
 
 class PaginatedMessages(BaseModel):

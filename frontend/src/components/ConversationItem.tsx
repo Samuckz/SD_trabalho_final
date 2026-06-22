@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
+import { Users } from 'lucide-react';
 import type { Conversation } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -56,11 +57,17 @@ export function ConversationItem({ conversation, isActive, onClick }: Conversati
       }`}
     >
       <div className="relative flex-shrink-0">
-        <img
-          src={getAvatar() || 'https://i.pravatar.cc/150?img=0'}
-          alt={getDisplayName()}
-          className="w-12 h-12 rounded-full object-cover"
-        />
+        {conversation.type === 'group' && !conversation.avatar ? (
+          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+            <Users className="w-6 h-6 text-blue-600" />
+          </div>
+        ) : (
+          <img
+            src={getAvatar() || 'https://i.pravatar.cc/150?img=0'}
+            alt={getDisplayName()}
+            className="w-12 h-12 rounded-full object-cover"
+          />
+        )}
         {status === 'online' && (
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
         )}

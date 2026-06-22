@@ -191,6 +191,48 @@ class ChatService {
     return { data: undefined, success: true };
   }
 
+  async renameGroup(id: string, name: string): Promise<ApiResponse<Conversation>> {
+    const res = await apiFetch(`/chat/conversations/${id}/name`, {
+      method: 'PUT',
+      headers: authHeader(),
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('Erro ao renomear grupo');
+    const body = await res.json();
+    return { data: await mapConversation(body.data), success: true };
+  }
+
+  async addParticipants(id: string, participantIds: string[]): Promise<ApiResponse<Conversation>> {
+    const res = await apiFetch(`/chat/conversations/${id}/participants`, {
+      method: 'POST',
+      headers: authHeader(),
+      body: JSON.stringify({ participantIds }),
+    });
+    if (!res.ok) throw new Error('Erro ao adicionar participantes');
+    const body = await res.json();
+    return { data: await mapConversation(body.data), success: true };
+  }
+
+  async removeParticipant(id: string, userId: string): Promise<ApiResponse<Conversation | null>> {
+    const res = await apiFetch(`/chat/conversations/${id}/participants/${userId}`, {
+      method: 'DELETE',
+      headers: authHeader(),
+    });
+    if (!res.ok) throw new Error('Erro ao remover participante');
+    const body = await res.json();
+    const data = body.data ? await mapConversation(body.data) : null;
+    return { data, success: true };
+  }
+
+  async leaveGroup(id: string): Promise<ApiResponse<void>> {
+    const res = await apiFetch(`/chat/conversations/${id}/leave`, {
+      method: 'POST',
+      headers: authHeader(),
+    });
+    if (!res.ok) throw new Error('Erro ao sair do grupo');
+    return { data: undefined, success: true };
+  }
+
   async searchUsers(query: string): Promise<ApiResponse<User[]>> {
     if (!query.trim()) return { data: [], success: true };
 

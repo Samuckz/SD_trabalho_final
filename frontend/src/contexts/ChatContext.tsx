@@ -14,6 +14,11 @@ interface ChatContextType {
   sendMessage: (content: string) => Promise<void>;
   loadConversations: () => Promise<void>;
   createConversation: (participantId: string) => Promise<void>;
+  createGroup: (name: string, participantIds: string[]) => Promise<void>;
+  renameGroup: (conversationId: string, name: string) => Promise<void>;
+  addParticipants: (conversationId: string, participantIds: string[]) => Promise<void>;
+  removeParticipant: (conversationId: string, userId: string) => Promise<void>;
+  leaveGroup: (conversationId: string) => Promise<void>;
   typingUsers: Set<string>;
 }
 
@@ -143,6 +148,45 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const createGroup = async (name: string, participantIds: string[]) => {
+    const response = await chatService.createConversation({ type: 'group', name, participantIds });
+    const newConv = response.data;
+    setConversations(prev => prev.some(c => c.id === newConv.id) ? prev : [newConv, ...prev]);
+    await selectConversation(newConv.id);
+  };
+
+  const renameGroup = async (conversationId: string, name: string) => {
+    const response = await chatService.renameGroup(conversationId, name);
+    setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, name: response.data.name } : c));
+    if (currentConversation?.id === conversationId) {
+      setCurrentConversation(prev => prev ? { ...prev, name: response.data.name } : prev);
+    }
+  };
+
+  const addParticipants = async (conversationId: string, participantIds: string[]) => {
+    const response = await chatService.addParticipants(conversationId, participantIds);
+    const updated = response.data;
+    setConversations(prev => prev.map(c => c.id === conversationId ? updated : c));
+    if (currentConversation?.id === conversationId) setCurrentConversation(updated);
+  };
+
+  const removeParticipant = async (conversationId: string, userId: string) => {
+    const response = await chatService.removeParticipant(conversationId, userId);
+    if (response.data === null) {
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+      if (currentConversation?.id === conversationId) setCurrentConversation(null);
+    } else {
+      setConversations(prev => prev.map(c => c.id === conversationId ? response.data! : c));
+      if (currentConversation?.id === conversationId) setCurrentConversation(response.data);
+    }
+  };
+
+  const leaveGroup = async (conversationId: string) => {
+    await chatService.leaveGroup(conversationId);
+    setConversations(prev => prev.filter(c => c.id !== conversationId));
+    if (currentConversation?.id === conversationId) setCurrentConversation(null);
+  };
+
   const createConversation = async (participantId: string) => {
     const response = await chatService.createConversation({
       type: 'private',
@@ -196,6 +240,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         sendMessage,
         loadConversations,
         createConversation,
+        createGroup,
+        renameGroup,
+        addParticipants,
+        removeParticipant,
+        leaveGroup,
         typingUsers
       }}
     >

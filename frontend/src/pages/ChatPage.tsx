@@ -1,18 +1,28 @@
-import { MoreVertical, Phone, Video } from 'lucide-react';
+import { useState } from 'react';
+import { MoreVertical, Phone, Video, Users } from 'lucide-react';
 import { ConversationList } from '../components/ConversationList';
 import { MessageList } from '../components/MessageList';
 import { MessageInput } from '../components/MessageInput';
+import { GroupDetailsPanel } from '../components/GroupDetailsPanel';
 import { useChat } from '../contexts/ChatContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export function ChatPage() {
   const { currentConversation } = useChat();
+  const { user: currentUser } = useAuth();
+  const [groupPanelOpen, setGroupPanelOpen] = useState(false);
+
+  const getOtherParticipant = () => {
+    if (!currentConversation) return null;
+    return currentConversation.participants.find(p => p.id !== currentUser?.id) ?? null;
+  };
 
   const getConversationName = () => {
     if (!currentConversation) return '';
     if (currentConversation.type === 'group') {
       return currentConversation.name || 'Grupo';
     }
-    return currentConversation.participants[0]?.username || 'Usuário';
+    return getOtherParticipant()?.username || 'Usuário';
   };
 
   const getParticipantCount = () => {
@@ -34,21 +44,31 @@ export function ChatPage() {
             {/* Chat Header */}
             <div className="bg-white border-b border-gray-200 p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={
-                      currentConversation.type === 'group'
-                        ? currentConversation.avatar
-                        : currentConversation.participants[0]?.avatar
-                    }
-                    alt={getConversationName()}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
+                <div
+                  className={`flex items-center gap-3 ${currentConversation.type === 'group' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                  onClick={() => currentConversation.type === 'group' && setGroupPanelOpen(true)}
+                  title={currentConversation.type === 'group' ? 'Ver detalhes do grupo' : undefined}
+                >
+                  {currentConversation.type === 'group' && !currentConversation.avatar ? (
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Users className="w-5 h-5 text-blue-600" />
+                    </div>
+                  ) : (
+                    <img
+                      src={
+                        currentConversation.type === 'group'
+                          ? currentConversation.avatar
+                          : getOtherParticipant()?.avatar || 'https://i.pravatar.cc/150?img=0'
+                      }
+                      alt={getConversationName()}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  )}
                   <div>
                     <h2 className="font-semibold text-gray-900">{getConversationName()}</h2>
                     <p className="text-xs text-gray-500">
                       {getParticipantCount() || (
-                        currentConversation.participants[0]?.status === 'online'
+                        getOtherParticipant()?.status === 'online'
                           ? 'Online'
                           : 'Offline'
                       )}
@@ -75,6 +95,13 @@ export function ChatPage() {
 
             {/* Message Input */}
             <MessageInput />
+
+            {groupPanelOpen && currentConversation.type === 'group' && (
+              <GroupDetailsPanel
+                conversation={currentConversation}
+                onClose={() => setGroupPanelOpen(false)}
+              />
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-white">

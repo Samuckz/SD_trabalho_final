@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -106,6 +106,76 @@ async def create_conversation(
         .options(selectinload(Conversation.participants))
     )
     return result.scalar_one()
+
+
+async def rename_group(
+    db: AsyncSession, conversation_id: uuid.UUID, name: str
+) -> Conversation:
+    await db.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id)
+        .values(name=name)
+    )
+    await db.commit()
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.id == conversation_id)
+        .options(selectinload(Conversation.participants))
+    )
+    return result.scalar_one()
+
+
+async def add_participants(
+    db: AsyncSession, conversation_id: uuid.UUID, user_ids: list[uuid.UUID]
+) -> Conversation:
+    result = await db.execute(
+        select(ConversationParticipant.user_id)
+        .where(ConversationParticipant.conversation_id == conversation_id)
+    )
+    existing_ids = {row[0] for row in result.all()}
+
+    for uid in user_ids:
+        if uid not in existing_ids:
+            db.add(ConversationParticipant(conversation_id=conversation_id, user_id=uid))
+
+    await db.commit()
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.id == conversation_id)
+        .options(selectinload(Conversation.participants))
+    )
+    return result.scalar_one()
+
+
+async def remove_participant(
+    db: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID
+) -> Optional[Conversation]:
+    await db.execute(
+        delete(ConversationParticipant).where(
+            ConversationParticipant.conversation_id == conversation_id,
+            ConversationParticipant.user_id == user_id,
+        )
+    )
+    await db.commit()
+
+    count_result = await db.execute(
+        select(func.count())
+        .select_from(ConversationParticipant)
+        .where(ConversationParticipant.conversation_id == conversation_id)
+    )
+    remaining = count_result.scalar() or 0
+
+    if remaining == 0:
+        await db.execute(delete(Conversation).where(Conversation.id == conversation_id))
+        await db.commit()
+        return None
+
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.id == conversation_id)
+        .options(selectinload(Conversation.participants))
+    )
+    return result.scalar_one_or_none()
 
 
 async def mark_conversation_as_read(
