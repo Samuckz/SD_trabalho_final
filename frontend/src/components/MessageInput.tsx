@@ -1,16 +1,42 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { useChat } from '../contexts/ChatContext';
+import { websocketService } from '../services/websocketService';
 
 export function MessageInput() {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const { sendMessage, currentConversation } = useChat();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
+
+  const stopTyping = () => {
+    if (!currentConversation || !isTypingRef.current) return;
+    isTypingRef.current = false;
+    websocketService.sendTyping(currentConversation.id, false);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+
+    if (!currentConversation) return;
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      websocketService.sendTyping(currentConversation.id, true);
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(stopTyping, 3000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!message.trim() || !currentConversation || isSending) return;
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    stopTyping();
 
     setIsSending(true);
     try {
@@ -52,7 +78,7 @@ export function MessageInput() {
         <div className="flex-1 relative">
           <textarea
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={handleChange}
             onKeyPress={handleKeyPress}
             placeholder="Digite uma mensagem..."
             className="w-full px-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none max-h-32"
