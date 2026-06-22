@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (currentUser && token) {
         setUser(currentUser);
-        websocketService.connect(token);
+        websocketService.connect(token, currentUser.id);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authService.login(credentials);
       setUser(response.data.user);
-      websocketService.connect(response.data.token);
+      websocketService.connect(response.data.token, response.data.user.id);
     } finally {
       setIsLoading(false);
     }
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authService.register(credentials);
       setUser(response.data.user);
-      websocketService.connect(response.data.token);
+      websocketService.connect(response.data.token, response.data.user.id);
     } finally {
       setIsLoading(false);
     }

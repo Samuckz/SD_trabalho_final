@@ -16,12 +16,10 @@ class WebSocketService {
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private eventHandlers: Map<string, WebSocketEventHandler[]> = new Map();
   private isMockMode = false;
+  private currentUserId: string | null = null;
 
-  /**
-   * Connect to WebSocket server
-   * Future: Real WebSocket connection
-   */
-  connect(token: string): void {
+  connect(token: string, userId: string): void {
+    this.currentUserId = userId;
     if (this.isMockMode) {
       this.connectMock();
       return;
@@ -129,22 +127,21 @@ class WebSocketService {
    * Send typing indicator
    */
   sendTyping(conversationId: string, isTyping: boolean): void {
+    if (!this.currentUserId) return;
     const event: TypingEvent = {
       conversationId,
-      userId: '1', // Current user ID
+      userId: this.currentUserId,
       isTyping
     };
     this.send('typing', event);
   }
 
-  /**
-   * Send read receipt
-   */
   sendReadReceipt(conversationId: string, messageId: string): void {
+    if (!this.currentUserId) return;
     const event: ReadEvent = {
       conversationId,
       messageId,
-      userId: '1' // Current user ID
+      userId: this.currentUserId
     };
     this.send('read', event);
   }
@@ -196,7 +193,7 @@ class WebSocketService {
     console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
     this.reconnectTimeout = setTimeout(() => {
-      this.connect(token);
+      this.connect(token, this.currentUserId ?? '');
     }, delay);
   }
 
