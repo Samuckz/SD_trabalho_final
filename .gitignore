@@ -48,7 +48,5 @@ backend/chat-service/migrations/__pycache__/
 frontend/node_modules/
 frontend/INTEGRATION_GUIDE.md
 frontend/ARCHITECTURE.md
-frontend/package-lock.json
-frontend/package.json
 
 .claude/

@@ -45,7 +45,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     if (activeCon?.id === newMessage.conversationId) {
       setMessages(prev => [...prev, newMessage]);
-      chatService.markAsRead(newMessage.id);
+      chatService.markConversationAsRead(newMessage.conversationId);
     }
 
     setConversations(prev => {
