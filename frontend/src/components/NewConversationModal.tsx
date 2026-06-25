@@ -29,6 +29,7 @@ export function NewConversationModal({ isOpen, onClose }: Props) {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
 
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const privateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const groupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const privateInputRef = useRef<HTMLInputElement>(null);
@@ -40,6 +41,7 @@ export function NewConversationModal({ isOpen, onClose }: Props) {
       setPrivateQuery(''); setPrivateResults([]); setPrivateSearchState('idle');
       setGroupName(''); setGroupQuery(''); setGroupResults([]); setGroupSearchState('idle');
       setSelectedUsers([]);
+      setError(null);
       setTimeout(() => privateInputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -84,8 +86,9 @@ export function NewConversationModal({ isOpen, onClose }: Props) {
   const handleSelectPrivateUser = async (user: User) => {
     if (isCreating) return;
     setIsCreating(true);
+    setError(null);
     try { await createConversation(user.id); onClose(); }
-    catch (err) { console.error(err); }
+    catch { setError('Não foi possível iniciar a conversa. Tente novamente.'); }
     finally { setIsCreating(false); }
   };
 
@@ -104,8 +107,9 @@ export function NewConversationModal({ isOpen, onClose }: Props) {
   const handleCreateGroup = async () => {
     if (isCreating || !groupName.trim() || selectedUsers.length < 2) return;
     setIsCreating(true);
+    setError(null);
     try { await createGroup(groupName.trim(), selectedUsers.map(u => u.id)); onClose(); }
-    catch (err) { console.error(err); }
+    catch { setError('Não foi possível criar o grupo. Tente novamente.'); }
     finally { setIsCreating(false); }
   };
 
@@ -149,6 +153,14 @@ export function NewConversationModal({ isOpen, onClose }: Props) {
             </button>
           ))}
         </div>
+
+        {/* Error banner */}
+        {error && (
+          <div className="mx-5 mt-4 flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+            <span className="text-xs text-red-700 flex-1">{error}</span>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 flex-shrink-0 text-xs">✕</button>
+          </div>
+        )}
 
         {/* ── Conversa Privada ── */}
         {activeTab === 'private' && (

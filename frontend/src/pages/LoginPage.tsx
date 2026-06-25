@@ -100,11 +100,6 @@ export function LoginPage() {
             </p>
           </div>
 
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-800 font-semibold mb-2">Dados de teste:</p>
-            <p className="text-xs text-blue-700">Email: joao@example.com</p>
-            <p className="text-xs text-blue-700">Senha: senha123</p>
-          </div>
         </div>
       </div>
     </div>

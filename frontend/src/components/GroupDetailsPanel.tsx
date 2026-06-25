@@ -27,6 +27,9 @@ export function GroupDetailsPanel({ conversation, onClose }: Props) {
 
   const [isLeaving, setIsLeaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -63,35 +66,41 @@ export function GroupDetailsPanel({ conversation, onClose }: Props) {
       return;
     }
     setIsSavingName(true);
+    setError(null);
     try {
       await renameGroup(conversation.id, nameInput.trim());
       setIsEditingName(false);
-    } catch (err) { console.error(err); }
+    } catch { setError('Não foi possível renomear o grupo. Tente novamente.'); }
     finally { setIsSavingName(false); }
   };
 
   const handleAddParticipant = async (user: User) => {
     setIsAdding(user.id);
+    setError(null);
     try {
       await addParticipants(conversation.id, [user.id]);
       setAddQuery('');
       setAddResults([]);
       setAddSearchState('idle');
-    } catch (err) { console.error(err); }
+    } catch { setError('Não foi possível adicionar o participante. Tente novamente.'); }
     finally { setIsAdding(null); }
   };
 
   const handleRemoveParticipant = async (userId: string) => {
+    setPendingRemoveId(null);
     setRemovingId(userId);
+    setError(null);
     try { await removeParticipant(conversation.id, userId); }
-    catch (err) { console.error(err); }
+    catch { setError('Não foi possível remover o participante. Tente novamente.'); }
     finally { setRemovingId(null); }
   };
 
   const handleLeave = async () => {
+    setConfirmingLeave(false);
     setIsLeaving(true);
+    setError(null);
     try { await leaveGroup(conversation.id); onClose(); }
-    catch (err) { console.error(err); }
+    catch { setError('Não foi possível sair do grupo. Tente novamente.'); }
     finally { setIsLeaving(false); }
   };
 
@@ -108,6 +117,14 @@ export function GroupDetailsPanel({ conversation, onClose }: Props) {
         </div>
 
         <div className="overflow-y-auto flex-1">
+          {/* Error banner */}
+          {error && (
+            <div className="mx-5 mt-4 flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+              <span className="text-xs text-red-700 flex-1">{error}</span>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 flex-shrink-0 text-xs">✕</button>
+            </div>
+          )}
+
           {/* Group name */}
           <div className="px-5 py-4 border-b border-gray-100">
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Nome do grupo</p>
@@ -159,17 +176,34 @@ export function GroupDetailsPanel({ conversation, onClose }: Props) {
                     )}
                   </span>
                   {participant.id !== currentUser?.id && (
-                    <button
-                      onClick={() => handleRemoveParticipant(participant.id)}
-                      disabled={removingId === participant.id}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                      title="Remover do grupo"
-                    >
-                      {removingId === participant.id
-                        ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400" />
-                        : <UserMinus className="w-4 h-4" />
-                      }
-                    </button>
+                    pendingRemoveId === participant.id ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleRemoveParticipant(participant.id)}
+                          className="text-xs font-medium text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded transition-colors"
+                        >
+                          Remover
+                        </button>
+                        <button
+                          onClick={() => setPendingRemoveId(null)}
+                          className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setPendingRemoveId(participant.id)}
+                        disabled={removingId === participant.id}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Remover do grupo"
+                      >
+                        {removingId === participant.id
+                          ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400" />
+                          : <UserMinus className="w-4 h-4" />
+                        }
+                      </button>
+                    )
                   )}
                 </li>
               ))}
@@ -226,14 +260,35 @@ export function GroupDetailsPanel({ conversation, onClose }: Props) {
 
         {/* Leave group */}
         <div className="px-5 py-4 flex-shrink-0">
-          <button
-            onClick={handleLeave}
-            disabled={isLeaving}
-            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-          >
-            {isLeaving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600" /> : <LogOut className="w-4 h-4" />}
-            Sair do grupo
-          </button>
+          {confirmingLeave ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-center text-gray-700">Tem certeza que deseja sair do grupo?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleLeave}
+                  disabled={isLeaving}
+                  className="flex-1 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isLeaving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mx-auto" /> : 'Sair'}
+                </button>
+                <button
+                  onClick={() => setConfirmingLeave(false)}
+                  className="flex-1 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmingLeave(true)}
+              disabled={isLeaving}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              <LogOut className="w-4 h-4" />
+              Sair do grupo
+            </button>
+          )}
         </div>
       </div>
     </div>
